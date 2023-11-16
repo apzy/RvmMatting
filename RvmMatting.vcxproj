@@ -19,7 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\RobustVideoMatting.cpp" />
     <ClCompile Include="src\RvmMatting.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\RobustVideoMatting.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -107,13 +111,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\source\opencv_build\opencv\build\install\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\source\opencv_build\opencv\build\install\include;D:\source\onnxruntime-win-x64-gpu-1.16.2\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\source\opencv_build\opencv\build\install\x64\vc17\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opencv_core470d.lib;opencv_highgui470d.lib;opencv_video470d.lib;opencv_videoio470d.lib;opencv_imgcodecs470d.lib;opencv_imgproc470d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\source\opencv_build\opencv\build\install\x64\vc17\lib;D:\source\onnxruntime-win-x64-gpu-1.16.2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opencv_core470d.lib;opencv_highgui470d.lib;opencv_video470d.lib;opencv_videoio470d.lib;opencv_imgcodecs470d.lib;opencv_imgproc470d.lib;onnxruntime.lib;onnxruntime_providers_cuda.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -124,15 +128,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\source\opencv_build\opencv\build\install\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\source\opencv_build\opencv\build\install\include;D:\source\onnxruntime-win-x64-gpu-1.16.2\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\source\opencv_build\opencv\build\install\x64\vc17\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opencv_core470.lib;opencv_highgui470.lib;opencv_video470.lib;opencv_videoio470.lib;opencv_imgcodecs470.lib;opencv_imgproc470.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\source\opencv_build\opencv\build\install\x64\vc17\lib;D:\source\onnxruntime-win-x64-gpu-1.16.2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opencv_core470.lib;opencv_highgui470.lib;opencv_video470.lib;opencv_videoio470.lib;opencv_imgcodecs470.lib;opencv_imgproc470.lib;onnxruntime.lib;onnxruntime_providers_cuda.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
