@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="RvmMatting.cpp">
+    <ClCompile Include="src\RvmMatting.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
