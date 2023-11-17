@@ -19,7 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\RVM.cpp" />
     <ClCompile Include="src\RvmMatting.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\RVM.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -107,13 +111,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\source\opencv_build\opencv\build\install\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\source\opencv_build\opencv\build\install\include;D:\source\libtorch-win-shared-with-deps-debug-1.13.1+cu117\libtorch\include;D:\source\libtorch-win-shared-with-deps-debug-1.13.1+cu117\libtorch\include\torch\csrc\api\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\source\opencv_build\opencv\build\install\x64\vc17\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opencv_core470d.lib;opencv_highgui470d.lib;opencv_video470d.lib;opencv_videoio470d.lib;opencv_imgcodecs470d.lib;opencv_imgproc470d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\source\opencv_build\opencv\build\install\x64\vc17\lib;D:\source\libtorch-win-shared-with-deps-debug-1.13.1+cu117\libtorch\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opencv_core470d.lib;opencv_highgui470d.lib;opencv_video470d.lib;opencv_videoio470d.lib;opencv_imgcodecs470d.lib;opencv_imgproc470d.lib;Winmm.lib;libprotobuf-lited.lib;pthreadpool.lib;libprotobufd.lib;clog.lib;cpuinfo.lib;libprotocd.lib;asmjit.lib;XNNPACK.lib;fbgemm.lib;kineto.lib;dnnl.lib;c10.lib;caffe2_nvrtc.lib;c10_cuda.lib;torch_cpu.lib;torch_cuda_cpp.lib;torch_cuda_cu.lib;torch_cuda.lib;torch.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/INCLUDE:"?ignore_this_library_placeholder@@YAHXZ"
+ %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
