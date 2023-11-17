@@ -15,7 +15,7 @@ RVM::RVM()
 		std::cout << "error loading the model\n";
 		std::cout << e.what() << std::endl;
 	}
-	m_greenTensor = torch::tensor({ 0,1,0 }).toType(torch::kFloat16).to(*m_device).view({ 1, 3, 1, 1 });
+	m_greenTensor = torch::tensor({ 0.f / 255,255.f / 255,0.f / 255 }).toType(torch::kFloat16).to(*m_device).view({ 1, 3, 1, 1 });
 }
 
 RVM::~RVM()

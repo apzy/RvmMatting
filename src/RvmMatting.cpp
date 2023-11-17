@@ -5,19 +5,22 @@
 using namespace std;
 using namespace cv;
 
-int main()
+int main(int argc, char* argv[])
 {
-	VideoCapture capture("input.mp4");
-	Mat frame,result;
+	string inputPath = argv[1];
+	printf("input file name => %s\n", inputPath.c_str());
+	VideoCapture capture(inputPath + ".mp4");
+	int fps = capture.get(CAP_PROP_FPS);
+	printf("fps = %d\n", fps);
+	VideoWriter videoWriter = cv::VideoWriter(inputPath + "_out.mp4", cv::VideoWriter::fourcc('m', 'p', '4', 'v'), fps, cv::Size(1080,1920));
+	Mat frame, result;
 	RVM rvm;
 	while (capture.read(frame))
 	{
 		rvm.inference(frame, result);
-		imshow("frame", frame);
-		waitKey(1);
-		imshow("result", result);
-		waitKey(1);
+		videoWriter.write(result);
 	}
+	videoWriter.release();
 	return 0;
 }
 
