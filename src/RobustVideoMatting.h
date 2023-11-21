@@ -58,15 +58,15 @@ private:
 		"r4o"
 	};
 	// input values handler & init
-	vector<float> dynamic_src_value_handler;
-	vector<float> dynamic_r1i_value_handler = { 0.0f }; // init 0. with shape (1,1,1,1)
-	vector<float> dynamic_r2i_value_handler = { 0.0f };
-	vector<float> dynamic_r3i_value_handler = { 0.0f };
-	vector<float> dynamic_r4i_value_handler = { 0.0f };
+	vector<uint16_t> dynamic_src_value_handler;
+	vector<uint16_t> dynamic_r1i_value_handler = { 0 }; // init 0. with shape (1,1,1,1)
+	vector<uint16_t> dynamic_r2i_value_handler = { 0 };
+	vector<uint16_t> dynamic_r3i_value_handler = { 0 };
+	vector<uint16_t> dynamic_r4i_value_handler = { 0 };
 	vector<float> dynamic_dsr_value_handler = { 0.25f }; // downsample_ratio with shape (1)
 	int64_t value_size_of(const std::vector<int64_t>& dims);
 	bool context_is_update = false;
-	void normalize_(Mat img, vector<float>& output);
+	void normalize_(Mat img, vector<uint16_t>& output);
 	vector<Ort::Value> transform(const Mat& mat);
 	void generate_matting(vector<Ort::Value>& output_tensors, MattingContent& content);
 	void update_context(vector<Ort::Value>& output_tensors);

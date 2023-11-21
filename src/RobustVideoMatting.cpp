@@ -2,6 +2,20 @@
 #include <chrono>
 #include <omp.h>
 
+inline uint16_t float32_to_float16(float v)
+{
+	union
+	{
+		uint32_t u; float f;
+	} t;
+	uint16_t y;
+
+	t.f = v;
+	y = ((t.u & 0x7fffffff) >> 13) - (0x38000000 >> 13);
+	y |= ((t.u & 0x80000000) >> 16);
+	return y;
+}
+
 RobustVideoMatting::RobustVideoMatting(string model_path)
 {
 	wstring widestr = wstring(model_path.begin(), model_path.end());
@@ -10,7 +24,7 @@ RobustVideoMatting::RobustVideoMatting(string model_path)
 	session_ = new Session(env, widestr.c_str(), sessionOptions);
 }
 
-void RobustVideoMatting::normalize_(Mat img, vector<float>& output)
+void RobustVideoMatting::normalize_(Mat img, vector<uint16_t>& output)
 {
 	int row = img.rows;
 	int col = img.cols;
@@ -22,9 +36,9 @@ void RobustVideoMatting::normalize_(Mat img, vector<float>& output)
 		{
 			float pix = img.ptr<uchar>(i)[j * 3 + 2 - 0];
 			output[0 * row * col + i * col + j] = pix / 255.0;
-			pix = img.ptr<uchar>(i)[j * 3 + 2 - 1];  
+			pix = img.ptr<uchar>(i)[j * 3 + 2 - 1];
 			output[1 * row * col + i * col + j] = pix / 255.0;
-			pix = img.ptr<uchar>(i)[j * 3 + 2 - 2]; 
+			pix = img.ptr<uchar>(i)[j * 3 + 2 - 2];
 			output[2 * row * col + i * col + j] = pix / 255.0;
 		}
 	}
@@ -64,17 +78,16 @@ vector<Ort::Value> RobustVideoMatting::transform(const Mat& mat)
 	int64_t r4i_value_size = this->value_size_of(r4i_dims); // (1*?*?h*?w)
 	int64_t dsr_value_size = this->value_size_of(dsr_dims); // 1
 
-
 	dynamic_src_value_handler.resize(src_value_size);
 	this->normalize_(src, dynamic_src_value_handler);
 	std::vector<Ort::Value> input_tensors;
 	auto allocator_info = MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
 
-	input_tensors.push_back(Value::CreateTensor<float>(allocator_info, dynamic_src_value_handler.data(), dynamic_src_value_handler.size(), src_dims.data(), src_dims.size()));
-	input_tensors.push_back(Value::CreateTensor<float>(allocator_info, dynamic_r1i_value_handler.data(), r1i_value_size, r1i_dims.data(), r1i_dims.size()));
-	input_tensors.push_back(Value::CreateTensor<float>(allocator_info, dynamic_r2i_value_handler.data(), r2i_value_size, r2i_dims.data(), r2i_dims.size()));
-	input_tensors.push_back(Value::CreateTensor<float>(allocator_info, dynamic_r3i_value_handler.data(), r3i_value_size, r3i_dims.data(), r3i_dims.size()));
-	input_tensors.push_back(Value::CreateTensor<float>(allocator_info, dynamic_r4i_value_handler.data(), r4i_value_size, r4i_dims.data(), r4i_dims.size()));
+	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_src_value_handler.data(), dynamic_src_value_handler.size() * sizeof(uint16_t), src_dims.data(), src_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16) );
+	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_r1i_value_handler.data(), r1i_value_size * sizeof(uint16_t), r1i_dims.data(), r1i_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16));
+	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_r2i_value_handler.data(), r2i_value_size * sizeof(uint16_t), r2i_dims.data(), r2i_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16));
+	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_r3i_value_handler.data(), r3i_value_size * sizeof(uint16_t), r3i_dims.data(), r3i_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16));
+	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_r4i_value_handler.data(), r4i_value_size * sizeof(uint16_t), r4i_dims.data(), r4i_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16));
 	input_tensors.push_back(Value::CreateTensor<float>(allocator_info, dynamic_dsr_value_handler.data(), dsr_value_size, dsr_dims.data(), dsr_dims.size()));
 
 	return input_tensors;
@@ -176,7 +189,7 @@ void RobustVideoMatting::detect(Mat& mat, MattingContent& content, float downsam
 	beginTime = std::chrono::high_resolution_clock::now();
 
 	// 2. inference, fgr, pha, rxo.
-	auto output_tensors = session_->Run(
+	auto outputTensor = session_->Run(
 		Ort::RunOptions{ nullptr }, input_node_names.data(),
 		input_tensors.data(), num_inputs, output_node_names.data(),
 		num_outputs
@@ -186,18 +199,18 @@ void RobustVideoMatting::detect(Mat& mat, MattingContent& content, float downsam
 	printf("time used = %d\n", elapsedTime.count());
 	beginTime = std::chrono::high_resolution_clock::now();
 
-	// 3. generate matting
-	this->generate_matting(output_tensors, content);
-	endTime = std::chrono::high_resolution_clock::now();
-	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
-	printf("time used = %d\n", elapsedTime.count());
-	beginTime = std::chrono::high_resolution_clock::now();
+	//// 3. generate matting
+	//this->generate_matting(m_outputTensor, content);
+	//endTime = std::chrono::high_resolution_clock::now();
+	//elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	//printf("time used = %d\n", elapsedTime.count());
+	//beginTime = std::chrono::high_resolution_clock::now();
 
-	// 4. update context (needed for video detection.)
-	context_is_update = false; // init state.
-	this->update_context(output_tensors);
-	endTime = std::chrono::high_resolution_clock::now();
-	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
-	printf("time used = %d\n", elapsedTime.count());
+	//// 4. update context (needed for video detection.)
+	//context_is_update = false; // init state.
+	//this->update_context(m_outputTensor);
+	//endTime = std::chrono::high_resolution_clock::now();
+	//elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	//printf("time used = %d\n", elapsedTime.count());
 	printf("----------------------------------------------------------------------------------\n");
 }
