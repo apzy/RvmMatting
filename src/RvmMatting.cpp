@@ -19,7 +19,11 @@ int main(int argc, char* argv[])
 	RVM rvm;
 	while (capture.read(frame))
 	{
+		auto beginTime = std::chrono::high_resolution_clock::now();
 		rvm.inference(frame, result);
+		auto endTime = std::chrono::high_resolution_clock::now();
+		auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+		printf("time used = %d\n", elapsedTime.count());
 		videoWriter.write(result);
 	}
 	videoWriter.release();
