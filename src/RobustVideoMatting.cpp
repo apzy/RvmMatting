@@ -4,7 +4,10 @@
 
 inline float float16_to_float32(uint16_t v)
 {
-	union { uint32_t u; float f; } t;
+	union
+	{
+		uint32_t u; float f;
+	} t;
 
 	t.u = v;
 	t.u = ((t.u & 0x7fff) << 13) + 0x38000000;
@@ -14,7 +17,10 @@ inline float float16_to_float32(uint16_t v)
 
 inline uint16_t float32_to_float16(float v)
 {
-	union { uint32_t u; float f; } t;
+	union
+	{
+		uint32_t u; float f;
+	} t;
 	uint16_t y;
 
 	t.f = v;
@@ -90,7 +96,7 @@ vector<Ort::Value> RobustVideoMatting::transform(const Mat& mat)
 	std::vector<Ort::Value> input_tensors;
 	auto allocator_info = MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
 
-	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_src_value_handler.data(), dynamic_src_value_handler.size() * sizeof(uint16_t), src_dims.data(), src_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16) );
+	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_src_value_handler.data(), dynamic_src_value_handler.size() * sizeof(uint16_t), src_dims.data(), src_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16));
 	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_r1i_value_handler.data(), r1i_value_size * sizeof(uint16_t), r1i_dims.data(), r1i_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16));
 	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_r2i_value_handler.data(), r2i_value_size * sizeof(uint16_t), r2i_dims.data(), r2i_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16));
 	input_tensors.push_back(Value::CreateTensor(allocator_info, dynamic_r3i_value_handler.data(), r3i_value_size * sizeof(uint16_t), r3i_dims.data(), r3i_dims.size(), ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16));
@@ -102,27 +108,39 @@ vector<Ort::Value> RobustVideoMatting::transform(const Mat& mat)
 
 void RobustVideoMatting::generate_matting(std::vector<Ort::Value>& output_tensors, MattingContent& content)
 {
-	Ort::Value& fgr = output_tensors.at(0); // fgr (1,3,h,w) 0.~1.
-	Ort::Value& pha = output_tensors.at(1); // pha (1,1,h,w) 0.~1.
-	auto fgr_dims = fgr.GetTypeInfo().GetTensorTypeAndShapeInfo().GetShape();
+	Ort::Value& pha = output_tensors.at(1);
 	auto pha_dims = pha.GetTypeInfo().GetTensorTypeAndShapeInfo().GetShape();
-	const unsigned int height = fgr_dims.at(2); // output height
-	const unsigned int width = fgr_dims.at(3); // output width
+	const unsigned int height = pha_dims.at(2);
+	const unsigned int width = pha_dims.at(3);
 	const unsigned int channel_step = height * width;
-	// merge -> assign & channel transpose(CHW->HWC).
-	uint16_t* fgr_ptr = fgr.GetTensorMutableData<uint16_t>();
 	uint16_t* pha_ptr = pha.GetTensorMutableData<uint16_t>();
-	Mat pmat(height, width, CV_8UC1);
-	printf("%d\n", channel_step);
-	#pragma omp parallel for collapse(1)  
-	for (int i = 0; i < channel_step; ++i)
+	int r = 0;
+	int g = 255;
+	int b = 0;
+	content.merge_mat = cv::Mat(height, width, CV_8UC3, cv::Scalar(r, g, b));
+
+	int step = width * 3;
+#pragma omp parallel for collapse(2)
+	for (int j = 0; j < height; ++j)
 	{
-		float data = float16_to_float32(*(pha_ptr + i));
-		*(pmat.data + i) = data * 255;
+		for (int i = 0, k = 0; i < step; i += 3,++k)
+		{
+			float data = float16_to_float32(*(pha_ptr + j * width + k));
+
+			if (data >= 1 )
+			{
+				content.merge_mat.ptr<uchar>(j)[i + 0] = content.fgr_mat.ptr<uchar>(j)[i + 0];
+				content.merge_mat.ptr<uchar>(j)[i + 1] = content.fgr_mat.ptr<uchar>(j)[i + 1];
+				content.merge_mat.ptr<uchar>(j)[i + 2] = content.fgr_mat.ptr<uchar>(j)[i + 2];
+			}
+			else if (data > 0)
+			{
+				content.merge_mat.ptr<uchar>(j)[i + 0] = data * content.fgr_mat.ptr<uchar>(j)[i + 0] + (1 - data) * content.merge_mat.ptr<uchar>(j)[i + 0];
+				content.merge_mat.ptr<uchar>(j)[i + 1] = data * content.fgr_mat.ptr<uchar>(j)[i + 1] + (1 - data) * content.merge_mat.ptr<uchar>(j)[i + 1];
+				content.merge_mat.ptr<uchar>(j)[i + 2] = data * content.fgr_mat.ptr<uchar>(j)[i + 2] + (1 - data) * content.merge_mat.ptr<uchar>(j)[i + 2];
+			}
+		}
 	}
-	cv::imshow("pmat", pmat);
-	cv::waitKey(1);
-	printf("-----------------------------------------\n");
 	//Mat rmat(height, width, CV_32FC1, fgr_ptr);
 	//Mat gmat(height, width, CV_32FC1, fgr_ptr + channel_step);
 	//Mat bmat(height, width, CV_32FC1, fgr_ptr + 2 * channel_step);
@@ -189,6 +207,7 @@ void RobustVideoMatting::update_context(std::vector<Ort::Value>& output_tensors)
 void RobustVideoMatting::detect(Mat& mat, MattingContent& content, float downsample_ratio)
 {
 	if (mat.empty()) return;
+	content.fgr_mat = mat;
 	// 0. set dsr at runtime.
 	auto beginTime = std::chrono::high_resolution_clock::now();
 

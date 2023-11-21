@@ -20,8 +20,8 @@ int main()
 	auto endTime = std::chrono::high_resolution_clock::now();
 	auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
 	printf("============================time used = %d\n", elapsedTime.count());
-		//imshow("frame", content.merge_mat);
-		//waitKey(1);
+		imshow("frame", content.merge_mat);
+		waitKey(1);
 	}
 	return 0;
 }
