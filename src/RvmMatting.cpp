@@ -23,6 +23,8 @@ int main()
 		auto endTime = std::chrono::high_resolution_clock::now();
 		auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
 		printf("============================time used = %d\n", elapsedTime.count());
+		cv::imshow("out", content.merge_mat);
+		cv::waitKey(1);
 		videoWriter.write(content.merge_mat);
 	}
 	videoWriter.release();
