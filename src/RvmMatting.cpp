@@ -15,7 +15,11 @@ int main()
 	while (capture.read(frame))
 	{
 		MattingContent content;
+	auto beginTime = std::chrono::high_resolution_clock::now();
 		rvm.detect(frame, content, downsample_ratio);
+	auto endTime = std::chrono::high_resolution_clock::now();
+	auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	printf("============================time used = %d\n", elapsedTime.count());
 		//imshow("frame", content.merge_mat);
 		//waitKey(1);
 	}

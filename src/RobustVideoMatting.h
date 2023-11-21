@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <onnxruntime_cxx_api.h>
+#include <onnxruntime_float16.h>
 #include <opencv2/opencv.hpp>
 
 using namespace std;

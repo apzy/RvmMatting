@@ -2,12 +2,19 @@
 #include <chrono>
 #include <omp.h>
 
+inline float float16_to_float32(uint16_t v)
+{
+	union { uint32_t u; float f; } t;
+
+	t.u = v;
+	t.u = ((t.u & 0x7fff) << 13) + 0x38000000;
+	t.u |= ((v & 0x8000) << 16);
+	return t.f;
+}
+
 inline uint16_t float32_to_float16(float v)
 {
-	union
-	{
-		uint32_t u; float f;
-	} t;
+	union { uint32_t u; float f; } t;
 	uint16_t y;
 
 	t.f = v;
@@ -35,11 +42,11 @@ void RobustVideoMatting::normalize_(Mat img, vector<uint16_t>& output)
 		for (int j = 0; j < col; j++)
 		{
 			float pix = img.ptr<uchar>(i)[j * 3 + 2 - 0];
-			output[0 * row * col + i * col + j] = pix / 255.0;
+			output[0 * row * col + i * col + j] = float32_to_float16(pix / 255.0);
 			pix = img.ptr<uchar>(i)[j * 3 + 2 - 1];
-			output[1 * row * col + i * col + j] = pix / 255.0;
+			output[1 * row * col + i * col + j] = float32_to_float16(pix / 255.0);
 			pix = img.ptr<uchar>(i)[j * 3 + 2 - 2];
-			output[2 * row * col + i * col + j] = pix / 255.0;
+			output[2 * row * col + i * col + j] = float32_to_float16(pix / 255.0);
 		}
 	}
 }
@@ -103,32 +110,42 @@ void RobustVideoMatting::generate_matting(std::vector<Ort::Value>& output_tensor
 	const unsigned int width = fgr_dims.at(3); // output width
 	const unsigned int channel_step = height * width;
 	// merge -> assign & channel transpose(CHW->HWC).
-	float* fgr_ptr = fgr.GetTensorMutableData<float>();
-	float* pha_ptr = pha.GetTensorMutableData<float>();
-	Mat rmat(height, width, CV_32FC1, fgr_ptr);
-	Mat gmat(height, width, CV_32FC1, fgr_ptr + channel_step);
-	Mat bmat(height, width, CV_32FC1, fgr_ptr + 2 * channel_step);
-	Mat pmat(height, width, CV_32FC1, pha_ptr);
-	rmat *= 255.;
-	bmat *= 255.;
-	gmat *= 255.;
-	Mat rest = 1. - pmat;
-	Mat mbmat = bmat.mul(pmat) + rest * 153.;
-	Mat mgmat = gmat.mul(pmat) + rest * 255.;
-	Mat mrmat = rmat.mul(pmat) + rest * 120.;
-	std::vector<Mat> fgr_channel_mats, merge_channel_mats;
-	fgr_channel_mats.push_back(bmat);
-	fgr_channel_mats.push_back(gmat);
-	fgr_channel_mats.push_back(rmat);
-	merge_channel_mats.push_back(mbmat);
-	merge_channel_mats.push_back(mgmat);
-	merge_channel_mats.push_back(mrmat);
+	uint16_t* fgr_ptr = fgr.GetTensorMutableData<uint16_t>();
+	uint16_t* pha_ptr = pha.GetTensorMutableData<uint16_t>();
+	Mat pmat(height, width, CV_8UC1);
+	printf("%d\n", channel_step);
+	#pragma omp parallel for collapse(1)  
+	for (int i = 0; i < channel_step; ++i)
+	{
+		float data = float16_to_float32(*(pha_ptr + i));
+		*(pmat.data + i) = data * 255;
+	}
+	cv::imshow("pmat", pmat);
+	cv::waitKey(1);
+	printf("-----------------------------------------\n");
+	//Mat rmat(height, width, CV_32FC1, fgr_ptr);
+	//Mat gmat(height, width, CV_32FC1, fgr_ptr + channel_step);
+	//Mat bmat(height, width, CV_32FC1, fgr_ptr + 2 * channel_step);
+	//rmat *= 255.;
+	//bmat *= 255.;
+	//gmat *= 255.;
+	//Mat rest = 1 - pmat;
+	//Mat mbmat = bmat.mul(pmat) + rest * 153.;
+	//Mat mgmat = gmat.mul(pmat) + rest * 255.;
+	//Mat mrmat = rmat.mul(pmat) + rest * 120.;
+	//std::vector<Mat> fgr_channel_mats, merge_channel_mats;
+	//fgr_channel_mats.push_back(bmat);
+	//fgr_channel_mats.push_back(gmat);
+	//fgr_channel_mats.push_back(rmat);
+	//merge_channel_mats.push_back(mbmat);
+	//merge_channel_mats.push_back(mgmat);
+	//merge_channel_mats.push_back(mrmat);
 
-	content.pha_mat = pmat;
-	merge(fgr_channel_mats, content.fgr_mat);
-	merge(merge_channel_mats, content.merge_mat);
-	content.fgr_mat.convertTo(content.fgr_mat, CV_8UC3);
-	content.merge_mat.convertTo(content.merge_mat, CV_8UC3);
+	//content.pha_mat = pmat;
+	//merge(fgr_channel_mats, content.fgr_mat);
+	//merge(merge_channel_mats, content.merge_mat);
+	//content.fgr_mat.convertTo(content.fgr_mat, CV_8UC3);
+	//content.merge_mat.convertTo(content.merge_mat, CV_8UC3);
 
 	content.flag = true;
 }
@@ -158,14 +175,14 @@ void RobustVideoMatting::update_context(std::vector<Ort::Value>& output_tensors)
 	dynamic_r2i_value_handler.resize(new_r2i_value_size);
 	dynamic_r3i_value_handler.resize(new_r3i_value_size);
 	dynamic_r4i_value_handler.resize(new_r4i_value_size);
-	float* new_r1i_value_ptr = r1o.GetTensorMutableData<float>();
-	float* new_r2i_value_ptr = r2o.GetTensorMutableData<float>();
-	float* new_r3i_value_ptr = r3o.GetTensorMutableData<float>();
-	float* new_r4i_value_ptr = r4o.GetTensorMutableData<float>();
-	std::memcpy(dynamic_r1i_value_handler.data(), new_r1i_value_ptr, new_r1i_value_size * sizeof(float));
-	std::memcpy(dynamic_r2i_value_handler.data(), new_r2i_value_ptr, new_r2i_value_size * sizeof(float));
-	std::memcpy(dynamic_r3i_value_handler.data(), new_r3i_value_ptr, new_r3i_value_size * sizeof(float));
-	std::memcpy(dynamic_r4i_value_handler.data(), new_r4i_value_ptr, new_r4i_value_size * sizeof(float));
+	uint16_t* new_r1i_value_ptr = r1o.GetTensorMutableData<uint16_t>();
+	uint16_t* new_r2i_value_ptr = r2o.GetTensorMutableData<uint16_t>();
+	uint16_t* new_r3i_value_ptr = r3o.GetTensorMutableData<uint16_t>();
+	uint16_t* new_r4i_value_ptr = r4o.GetTensorMutableData<uint16_t>();
+	std::memcpy(dynamic_r1i_value_handler.data(), new_r1i_value_ptr, new_r1i_value_size * sizeof(uint16_t));
+	std::memcpy(dynamic_r2i_value_handler.data(), new_r2i_value_ptr, new_r2i_value_size * sizeof(uint16_t));
+	std::memcpy(dynamic_r3i_value_handler.data(), new_r3i_value_ptr, new_r3i_value_size * sizeof(uint16_t));
+	std::memcpy(dynamic_r4i_value_handler.data(), new_r4i_value_ptr, new_r4i_value_size * sizeof(uint16_t));
 	context_is_update = true;
 }
 
@@ -178,14 +195,13 @@ void RobustVideoMatting::detect(Mat& mat, MattingContent& content, float downsam
 	dynamic_dsr_value_handler.at(0) = downsample_ratio;
 	auto endTime = std::chrono::high_resolution_clock::now();
 	auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
-	printf("time used = %d\n", elapsedTime.count());
 	beginTime = std::chrono::high_resolution_clock::now();
 
 	// 1. make input tensors, src, rxi, dsr
 	std::vector<Ort::Value> input_tensors = this->transform(mat);
 	endTime = std::chrono::high_resolution_clock::now();
 	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
-	printf("time used = %d\n", elapsedTime.count());
+	printf("transform time used = %d\n", elapsedTime.count());
 	beginTime = std::chrono::high_resolution_clock::now();
 
 	// 2. inference, fgr, pha, rxo.
@@ -196,21 +212,21 @@ void RobustVideoMatting::detect(Mat& mat, MattingContent& content, float downsam
 	);
 	endTime = std::chrono::high_resolution_clock::now();
 	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
-	printf("time used = %d\n", elapsedTime.count());
+	printf("run time used = %d\n", elapsedTime.count());
 	beginTime = std::chrono::high_resolution_clock::now();
 
-	//// 3. generate matting
-	//this->generate_matting(m_outputTensor, content);
-	//endTime = std::chrono::high_resolution_clock::now();
-	//elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
-	//printf("time used = %d\n", elapsedTime.count());
-	//beginTime = std::chrono::high_resolution_clock::now();
+	// 3. generate matting
+	this->generate_matting(outputTensor, content);
+	endTime = std::chrono::high_resolution_clock::now();
+	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	printf("generate time used = %d\n", elapsedTime.count());
+	beginTime = std::chrono::high_resolution_clock::now();
 
-	//// 4. update context (needed for video detection.)
-	//context_is_update = false; // init state.
-	//this->update_context(m_outputTensor);
-	//endTime = std::chrono::high_resolution_clock::now();
-	//elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
-	//printf("time used = %d\n", elapsedTime.count());
+	// 4. update context (needed for video detection.)
+	context_is_update = false; // init state.
+	this->update_context(outputTensor);
+	endTime = std::chrono::high_resolution_clock::now();
+	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	printf("context time used = %d\n", elapsedTime.count());
 	printf("----------------------------------------------------------------------------------\n");
 }
