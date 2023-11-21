@@ -141,29 +141,6 @@ void RobustVideoMatting::generate_matting(std::vector<Ort::Value>& output_tensor
 			}
 		}
 	}
-	//Mat rmat(height, width, CV_32FC1, fgr_ptr);
-	//Mat gmat(height, width, CV_32FC1, fgr_ptr + channel_step);
-	//Mat bmat(height, width, CV_32FC1, fgr_ptr + 2 * channel_step);
-	//rmat *= 255.;
-	//bmat *= 255.;
-	//gmat *= 255.;
-	//Mat rest = 1 - pmat;
-	//Mat mbmat = bmat.mul(pmat) + rest * 153.;
-	//Mat mgmat = gmat.mul(pmat) + rest * 255.;
-	//Mat mrmat = rmat.mul(pmat) + rest * 120.;
-	//std::vector<Mat> fgr_channel_mats, merge_channel_mats;
-	//fgr_channel_mats.push_back(bmat);
-	//fgr_channel_mats.push_back(gmat);
-	//fgr_channel_mats.push_back(rmat);
-	//merge_channel_mats.push_back(mbmat);
-	//merge_channel_mats.push_back(mgmat);
-	//merge_channel_mats.push_back(mrmat);
-
-	//content.pha_mat = pmat;
-	//merge(fgr_channel_mats, content.fgr_mat);
-	//merge(merge_channel_mats, content.merge_mat);
-	//content.fgr_mat.convertTo(content.fgr_mat, CV_8UC3);
-	//content.merge_mat.convertTo(content.merge_mat, CV_8UC3);
 
 	content.flag = true;
 }
