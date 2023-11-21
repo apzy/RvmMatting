@@ -70,4 +70,7 @@ private:
 	vector<Ort::Value> transform(const Mat& mat);
 	void generate_matting(vector<Ort::Value>& output_tensors, MattingContent& content);
 	void update_context(vector<Ort::Value>& output_tensors);
+
+	//Ort::Value m_r1iTensor;
+	//std::vector<Ort::Value>& m_outputTensor;
 };

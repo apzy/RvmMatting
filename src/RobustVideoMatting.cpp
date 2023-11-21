@@ -1,4 +1,6 @@
 #include "RobustVideoMatting.h"
+#include <chrono>
+#include <omp.h>
 
 RobustVideoMatting::RobustVideoMatting(string model_path)
 {
@@ -10,18 +12,20 @@ RobustVideoMatting::RobustVideoMatting(string model_path)
 
 void RobustVideoMatting::normalize_(Mat img, vector<float>& output)
 {
-	//    img.convertTo(img, CV_32F);
 	int row = img.rows;
 	int col = img.cols;
-	for (int c = 0; c < 3; c++)
+
+#pragma omp parallel for collapse(2)  
+	for (int i = 0; i < row; i++)
 	{
-		for (int i = 0; i < row; i++)
+		for (int j = 0; j < col; j++)
 		{
-			for (int j = 0; j < col; j++)
-			{
-				float pix = img.ptr<uchar>(i)[j * 3 + 2 - c];   ///BGR2RGB
-				output[c * row * col + i * col + j] = pix / 255.0;
-			}
+			float pix = img.ptr<uchar>(i)[j * 3 + 2 - 0];
+			output[0 * row * col + i * col + j] = pix / 255.0;
+			pix = img.ptr<uchar>(i)[j * 3 + 2 - 1];  
+			output[1 * row * col + i * col + j] = pix / 255.0;
+			pix = img.ptr<uchar>(i)[j * 3 + 2 - 2]; 
+			output[2 * row * col + i * col + j] = pix / 255.0;
 		}
 	}
 }
@@ -36,12 +40,15 @@ int64_t RobustVideoMatting::value_size_of(const std::vector<int64_t>& dims)
 
 vector<Ort::Value> RobustVideoMatting::transform(const Mat& mat)
 {
+	auto beginTime = std::chrono::high_resolution_clock::now();
 	Mat src = mat.clone();
 	const unsigned int img_height = mat.rows;
 	const unsigned int img_width = mat.cols;
 	vector<int64_t>& src_dims = dynamic_input_node_dims.at(0); // (1,3,h,w)
 	src_dims.at(2) = img_height;
 	src_dims.at(3) = img_width;
+	auto endTime = std::chrono::high_resolution_clock::now();
+	auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
 
 	// assume that rxi's dims and value_handler was updated by last step in a while loop.
 	std::vector<int64_t>& r1i_dims = dynamic_input_node_dims.at(1); // (1,?,?h,?w)
@@ -57,6 +64,7 @@ vector<Ort::Value> RobustVideoMatting::transform(const Mat& mat)
 	int64_t r4i_value_size = this->value_size_of(r4i_dims); // (1*?*?h*?w)
 	int64_t dsr_value_size = this->value_size_of(dsr_dims); // 1
 
+
 	dynamic_src_value_handler.resize(src_value_size);
 	this->normalize_(src, dynamic_src_value_handler);
 	std::vector<Ort::Value> input_tensors;
@@ -68,6 +76,7 @@ vector<Ort::Value> RobustVideoMatting::transform(const Mat& mat)
 	input_tensors.push_back(Value::CreateTensor<float>(allocator_info, dynamic_r3i_value_handler.data(), r3i_value_size, r3i_dims.data(), r3i_dims.size()));
 	input_tensors.push_back(Value::CreateTensor<float>(allocator_info, dynamic_r4i_value_handler.data(), r4i_value_size, r4i_dims.data(), r4i_dims.size()));
 	input_tensors.push_back(Value::CreateTensor<float>(allocator_info, dynamic_dsr_value_handler.data(), dsr_value_size, dsr_dims.data(), dsr_dims.size()));
+
 	return input_tensors;
 }
 
@@ -151,18 +160,44 @@ void RobustVideoMatting::detect(Mat& mat, MattingContent& content, float downsam
 {
 	if (mat.empty()) return;
 	// 0. set dsr at runtime.
+	auto beginTime = std::chrono::high_resolution_clock::now();
+
 	dynamic_dsr_value_handler.at(0) = downsample_ratio;
+	auto endTime = std::chrono::high_resolution_clock::now();
+	auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	printf("time used = %d\n", elapsedTime.count());
+	beginTime = std::chrono::high_resolution_clock::now();
+
 	// 1. make input tensors, src, rxi, dsr
 	std::vector<Ort::Value> input_tensors = this->transform(mat);
+	endTime = std::chrono::high_resolution_clock::now();
+	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	printf("time used = %d\n", elapsedTime.count());
+	beginTime = std::chrono::high_resolution_clock::now();
+
 	// 2. inference, fgr, pha, rxo.
 	auto output_tensors = session_->Run(
 		Ort::RunOptions{ nullptr }, input_node_names.data(),
 		input_tensors.data(), num_inputs, output_node_names.data(),
 		num_outputs
 	);
+	endTime = std::chrono::high_resolution_clock::now();
+	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	printf("time used = %d\n", elapsedTime.count());
+	beginTime = std::chrono::high_resolution_clock::now();
+
 	// 3. generate matting
 	this->generate_matting(output_tensors, content);
+	endTime = std::chrono::high_resolution_clock::now();
+	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	printf("time used = %d\n", elapsedTime.count());
+	beginTime = std::chrono::high_resolution_clock::now();
+
 	// 4. update context (needed for video detection.)
 	context_is_update = false; // init state.
 	this->update_context(output_tensors);
+	endTime = std::chrono::high_resolution_clock::now();
+	elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+	printf("time used = %d\n", elapsedTime.count());
+	printf("----------------------------------------------------------------------------------\n");
 }
